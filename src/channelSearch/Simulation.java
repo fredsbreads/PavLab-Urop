@@ -42,7 +42,7 @@ public class Simulation extends JFrame {
     
     
 //    private boolean running = false;
-    private Controller coordinator;
+    private Controller controller;
     
     private JFrame window = this;
     private JPanel contentPane;
@@ -88,7 +88,7 @@ public class Simulation extends JFrame {
                 }
                 else {
                     selectButton.setText("Select Start Positions");
-                    coordinator = new Controller(selected, depthGrid); //new Coordinator created each time selecting is toggled off
+                    controller = new Controller(selected, depthGrid); //new controller created each time selecting is toggled off
                 }
                 
             }
@@ -191,8 +191,8 @@ public class Simulation extends JFrame {
             toggle(coordinate.get(0), coordinate.get(1));
         }
         
-        if (coordinator.isDone()) {
-            for (List<Integer> coordinate: coordinator.getPath()) { //reset color of found path
+        if (controller.isDone()) {
+            for (List<Integer> coordinate: controller.getPath()) { //reset color of found path
                 panelGrid.get(coordinate.get(0)).get(coordinate.get(1)).setBackground(colorGrid.get(coordinate.get(0)).get(coordinate.get(1)));
             }
         }
@@ -224,7 +224,7 @@ public class Simulation extends JFrame {
         //HACKY SPEEDUP FOR NOT HAVING TO CLICK TOP LEFT EVERY TIME
         if (selected.size() == 0) {
             toggle(0, 0);
-            coordinator = new Controller(selected, depthGrid);
+            controller = new Controller(selected, depthGrid);
         }
         ////////////////////////////////////////////////
         
@@ -238,11 +238,11 @@ public class Simulation extends JFrame {
             return;
         }
         
-        if (coordinator.isDone()) {
-            for (List<Integer> coordinate: coordinator.getTraversedPath()) {
+        if (controller.isDone()) {
+            for (List<Integer> coordinate: controller.getTraversedPath()) {
                 panelGrid.get(coordinate.get(0)).get(coordinate.get(1)).setBackground(new Color(0, 0, 0));
             }
-            for (List<Integer> coordinate: coordinator.getPath()) {
+            for (List<Integer> coordinate: controller.getPath()) {
                 //colors everything on found path magenta
 //                panelGrid.get(coordinate.get(0)).get(coordinate.get(1)).setBorder(new LineBorder(new Color(0, 0, 0)));
                 panelGrid.get(coordinate.get(0)).get(coordinate.get(1)).setBackground(new Color(255, 255, 255));
@@ -257,7 +257,7 @@ public class Simulation extends JFrame {
         }
         else {
             clear();
-            for (List<Integer> coordinate: coordinator.newPositions()) {
+            for (List<Integer> coordinate: controller.newPositions()) {
                 toggle(coordinate.get(0), coordinate.get(1));
             }
         }
