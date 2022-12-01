@@ -41,6 +41,8 @@ public class Simulation extends JFrame {
     private boolean done = false;
     
     
+    private boolean single = true; //true if only one vehicle, false if two (will need to be changed as more vehicles are added)
+    
 //    private boolean running = false;
     private Controller controller;
     
@@ -79,22 +81,22 @@ public class Simulation extends JFrame {
         this.depthGrid = depthMatrix;
         this.colorGrid = colorMatrix;
         
-        JButton selectButton = new JButton("Select Start Positions");
-        selectButton.addActionListener(new ActionListener() {
-            public void actionPerformed(ActionEvent e) {
-                selecting = !selecting;
-                if (selecting) {
-                    selectButton.setText("Stop Selecting");
-                }
-                else {
-                    selectButton.setText("Select Start Positions");
-                    controller = new Controller(selected, depthGrid); //new controller created each time selecting is toggled off
-                }
-                
-            }
-        });
-        selectButton.setBounds(6, 6, 160, 29);
-        contentPane.add(selectButton);
+//        JButton selectButton = new JButton("Select Start Positions");
+//        selectButton.addActionListener(new ActionListener() {
+//            public void actionPerformed(ActionEvent e) {
+//                selecting = !selecting;
+//                if (selecting) {
+//                    selectButton.setText("Stop Selecting");
+//                }
+//                else {
+//                    selectButton.setText("Select Start Positions");
+//                    controller = new Controller(selected, depthGrid); //new controller created each time selecting is toggled off
+//                }
+//                
+//            }
+//        });
+//        selectButton.setBounds(6, 6, 160, 29);
+//        contentPane.add(selectButton);
         
         JButton stepButton = new JButton("Time Step");
         stepButton.addActionListener(new ActionListener() {
@@ -108,8 +110,10 @@ public class Simulation extends JFrame {
         JButton resetButton = new JButton("Reset");
         resetButton.addActionListener(new ActionListener() {
             public void actionPerformed(ActionEvent e) {
-                done = false;
                 clear();
+                if (playing) {
+                	playButton.doClick();
+                }
             }
         });
         resetButton.setBounds(425, 6, 117, 29);
@@ -129,7 +133,7 @@ public class Simulation extends JFrame {
                         public void run() {
                             timeStep();
                         }
-                    }, 0, 100); //task, initial delay, repeat timer in milliseconds
+                    }, 0, 50); //task, initial delay, repeat timer in milliseconds
                 }
                 else {
                     playButton.setText("Play");
@@ -139,6 +143,29 @@ public class Simulation extends JFrame {
         });
         playButton.setBounds(296, 6, 117, 29);
         contentPane.add(playButton);
+        
+        JButton numVehicleButton = new JButton("Toggle: 1 Vehicle");
+        numVehicleButton.addActionListener(new ActionListener() {
+        	public void actionPerformed(ActionEvent e) {
+        		clear();
+        		
+        		single = ! single;
+        		
+        		if (single) {
+        			numVehicleButton.setText("Toggle: 1 Vehicle");
+        		}
+        		else {
+        			numVehicleButton.setText("Toggle: 2 Vehicles");
+        		}
+        		
+        		
+        		
+        		
+        		
+        	}
+        });
+        numVehicleButton.setBounds(6, 6, 149, 29);
+        contentPane.add(numVehicleButton);
         
         
         int height = colorMatrix.size();
@@ -182,6 +209,7 @@ public class Simulation extends JFrame {
      * Clears the display of selected vehicles and the found paths.
      */
     public void clear() {
+    	done = false;
         //There might be some better way of iterating over values without modifying list other than copying everything
         Set<List<Integer>> copy = new HashSet<>();
         for (List<Integer> coordinate: selected) {
@@ -191,8 +219,8 @@ public class Simulation extends JFrame {
             toggle(coordinate.get(0), coordinate.get(1));
         }
         
-        if (controller.isDone()) {
-            for (List<Integer> coordinate: controller.getPath()) { //reset color of found path
+        if (controller != null && controller.isDone()) {
+            for (List<Integer> coordinate: controller.getTraversedPaths()) { //reset color of found path
                 panelGrid.get(coordinate.get(0)).get(coordinate.get(1)).setBackground(colorGrid.get(coordinate.get(0)).get(coordinate.get(1)));
             }
         }
@@ -224,7 +252,9 @@ public class Simulation extends JFrame {
         //HACKY SPEEDUP FOR NOT HAVING TO CLICK TOP LEFT EVERY TIME
         if (selected.size() == 0) {
             toggle(0, 0);
-            controller = new Controller(selected, depthGrid);
+//            controller = new Controller(selected, depthGrid);
+            controller = new Controller(single, depthGrid);
+
         }
         ////////////////////////////////////////////////
         
@@ -239,10 +269,10 @@ public class Simulation extends JFrame {
         }
         
         if (controller.isDone()) {
-            for (List<Integer> coordinate: controller.getTraversedPath()) {
+            for (List<Integer> coordinate: controller.getTraversedPaths()) {
                 panelGrid.get(coordinate.get(0)).get(coordinate.get(1)).setBackground(new Color(0, 0, 0));
             }
-            for (List<Integer> coordinate: controller.getPath()) {
+            for (List<Integer> coordinate: controller.getFoundPaths()) {
                 //colors everything on found path magenta
 //                panelGrid.get(coordinate.get(0)).get(coordinate.get(1)).setBorder(new LineBorder(new Color(0, 0, 0)));
                 panelGrid.get(coordinate.get(0)).get(coordinate.get(1)).setBackground(new Color(255, 255, 255));
@@ -269,10 +299,11 @@ public class Simulation extends JFrame {
             @Override
             public void run() {       
                 String filename = "";
-//                filename = "/Users/fred/Desktop/UROP/channelSearch/Bathymetry/Straight Path.txt";
+                filename = "/Users/fred/Desktop/UROP/channelSearch/Bathymetry/Straight Path.txt";
 //                filename = "/Users/fred/Desktop/UROP/channelSearch/Bathymetry/Bent Path.txt";
-                filename = "/Users/fred/Desktop/UROP/channelSearch/Bathymetry/Curved Path.txt";
+//                filename = "/Users/fred/Desktop/UROP/channelSearch/Bathymetry/Curved Path.txt";
 //                filename = "/Users/fred/Desktop/UROP/channelSearch/Bathymetry/Y Path.txt";
+//                filename = "/Users/fred/Desktop/UROP/channelSearch/Bathymetry/Trapped.txt";
 
 
                     try {
@@ -312,7 +343,7 @@ public class Simulation extends JFrame {
                         bufferedReader.close();
                         
                         
-                        
+//                        
                         List<List<Integer>> dtranspose = new ArrayList<>();
                         for (int i = 0; i < depthMatrix.get(0).size(); i++) {
                             List<Integer> column = new ArrayList<>();

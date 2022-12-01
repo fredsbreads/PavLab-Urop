@@ -237,7 +237,7 @@ public class BathymetryInterface extends JFrame {
             @Override
             public void run() {       
                 String filename = "";
-                filename = "/Users/fred/eclipse-workspace/Urop/Bathymetry/Straight Path.txt";
+//                filename = "/Users/fred/eclipse-workspace/Urop/Bathymetry/Straight Path.txt";
 //                filename = "/Users/fred/eclipse-workspace/Urop/Bathymetry/Bent Path.txt";
 //                filename = "/Users/fred/eclipse-workspace/Urop/Bathymetry/Curved Path.txt";
 //                filename = "/Users/fred/eclipse-workspace/Urop/Bathymetry/Y Path.txt";

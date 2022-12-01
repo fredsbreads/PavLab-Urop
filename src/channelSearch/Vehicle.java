@@ -9,22 +9,28 @@ import java.util.Random;
 public class Vehicle {
     private int xPosition;
     private int yPosition;
-//    private int oldX = -1; //used to determine orientation
-//    private int oldY = -1;
-    private List<Integer> direction = List.of(1,1); //it'd probably be easier to just track direction index
+
     private List<List<Integer>> order = List.of(List.of(-1,-1), List.of(-1,0), List.of(-1,1), List.of(0,1), List.of(1,1), List.of(1,0), List.of(1,-1), List.of(0,-1));
-    private List<List<Integer>> localGrid = new ArrayList<>();
 //    private List<List<Integer>> order = List.of(List.of(0,-1), List.of(1,-1), List.of(1,0), List.of(1,1), List.of(0,1), List.of(-1,1), List.of(-1,0), List.of(-1,-1));
     //^order uses y increases downwards
+    
+    private List<List<Integer>> localGrid = new ArrayList<>();
     private List<List<Integer>> depthGrid;
-    private List<Integer> lastVitalLocation = List.of(0, 0); //last vital (deep or start channel) location navigated across
-    private List<Integer> lastDirection = List.of(1,1); //direction that was faced when lastDeepLocation was entered
+    
+    private List<Integer> lastVitalLocation; //last vital (deep or start channel) location navigated across
+    private List<Integer> lastDirection; //direction that was faced when lastDeepLocation was entered
+    
     private List<List<Integer>> queue = new ArrayList<>();
-
+    private boolean clockwise; //tracks whether vehicle is top or bottom
+    
+    private boolean done; //true if vehicle is done
+    
+    private List<List<Integer>> candidatePath = new ArrayList<>();
+    private List<List<Integer>> traversedPath = new ArrayList<>();
     
     
     //depthGrid is exposed
-    public Vehicle(int y, int x, List<List<Integer>> depthGrid) { //probably safe to assume that grid is at least 2x2
+    public Vehicle(boolean top, int y, int x, List<List<Integer>> depthGrid) { //probably safe to assume that grid is at least 2x2
         yPosition = y;
         xPosition = x;
         
@@ -39,7 +45,17 @@ public class Vehicle {
             localGrid.add(row);
         }
         
+        this.clockwise = top;
         this.depthGrid = depthGrid;
+        
+        if (this.clockwise) {
+        	this.lastVitalLocation = List.of(0, 0);
+        	this.lastDirection = List.of(1,1);
+        }
+        else {
+        	this.lastVitalLocation = List.of(depthGrid.size()-1, 0);
+        	this.lastDirection = List.of(-1, 1);
+        }
     }
     
     public List<Integer> getPosition() { //y, x
@@ -49,66 +65,8 @@ public class Vehicle {
         return position;
     }
     
-    public List<List<Integer>> neighboringCells() { //includes self as neighbor
-        List<Integer> xDeltas = new ArrayList<>();
-        List<Integer> yDeltas = new ArrayList<>();
-        
-        List<List<Integer>> neighbors = new ArrayList<>();
-
-        if (xPosition == 0) {
-            xDeltas.add(0);
-            xDeltas.add(1);
-        }
-        else if (xPosition == localGrid.get(0).size() - 1) {
-            xDeltas.add(-1);
-            xDeltas.add(0);
-        }
-        else {
-            xDeltas.add(-1);
-            xDeltas.add(0);
-            xDeltas.add(1);
-        }
-        
-        if (yPosition == 0) {
-            yDeltas.add(0);
-            yDeltas.add(1);
-        }
-        else if (yPosition == localGrid.size() - 1) {
-            yDeltas.add(-1);
-            yDeltas.add(0);
-        }
-        else {
-            yDeltas.add(-1);
-            yDeltas.add(0);
-            yDeltas.add(1);
-        }
-        
-        for (int xDelta: xDeltas) {
-            for (int yDelta: yDeltas) {
-                List<Integer> neighbor = new ArrayList<>();
-                neighbor.add(yPosition + yDelta);
-                neighbor.add(xPosition + xDelta);
-                neighbors.add(neighbor);
-            }
-        }
-        
-        return neighbors;
-    }
-    
-    //CODE CHOOSING THE NEIGHBOR THAT FOLLOWS THE EDGE, THEN CODE HIGHLIGHTING THE PATH IF FOUND
-        //-keep a list which is added with the coordinate of each move (could contain repeats), reset list if left channel ever reached, once path is found
-        //-color all coordinates in list a certain color (Purple?)
-        //-path impossible if vehicle ever reaches bottom left corner
-    
-    /**
-     * @return a list of coordinates that would entail following the top edge, DOES NOT EXCLUDE NODES PREVIOUSLY VISITED
-     */
-    public void createQueue() {
-        //create legal list
-        //does not exclude coordinates until late to allow for local map to be updated later
-        //move in single units towards next item in queue (implemented this way for the edge cases where top queue item isn't immediately touching current position)
-        queue.clear();
-        
+    private List<List<Integer>> queueOrder() {
+    	
         int index = 0;
         for (List<Integer> orientation: order) {
             if (lastDirection.equals(orientation)) {
@@ -116,27 +74,51 @@ public class Vehicle {
             }
             index += 1;
         }
-        
-        index -= 2;
-        if (index < 0) {
-            index += 8;
+        if (clockwise) {
+        	index -= 2;
+        	if (index < 0) {
+        		index += 8;
+        	}
         }
-        
-        for (int i = index; i < 8; i++) {
-            List<Integer> orientation = order.get(i);
-            
-            int newy = yPosition + orientation.get(0);
-            int newx = xPosition + orientation.get(1);
-            
-            if (newy >= 0 && newx >= 0 && newy < depthGrid.size() && newx < depthGrid.get(0).size()) {
-                queue.add(List.of(newy, newx));
-            }
-            
+        else {
+        	index += 2;
+        	if (index >= 8) {
+        		index -= 8;
+        	}
         }
+    	
+    	List<List<Integer>> queueOrder = new ArrayList<>();
+    	
+    	if (clockwise) {
+    		for (int i = index; i < 8; i++) {
+    			queueOrder.add(order.get(i));
+    		}
+    		for (int i = 0; i < index - 1; i++) {
+    			queueOrder.add(order.get(i));
+    		}    		
+    	}
+    	else {
+    		for (int i = index; i >= 0; i--) {
+    			queueOrder.add(order.get(i));
+    		}
+    		for (int i = 7; i > index + 1; i--) {
+    			queueOrder.add(order.get(i));
+    		}    
+    	}
+    	return queueOrder;
+    }
+    
+    
+    /**
+     * @return a list of coordinates that would entail following the corresponding edge (top or bottom), DOES NOT EXCLUDE NODES PREVIOUSLY VISITED
+     */
+    public void createQueue() {
+        //create legal list
+        //does not exclude coordinates until late to allow for local map to be updated later
+        //move in single units towards next item in queue (implemented this way for the edge cases where top queue item isn't immediately touching current position)
+        queue.clear();
         
-        for (int i = 0; i < index - 1; i++) {
-            List<Integer> orientation = order.get(i);
-            
+        for (List<Integer> orientation: queueOrder()) {        
             int newy = yPosition + orientation.get(0);
             int newx = xPosition + orientation.get(1);
             
@@ -146,38 +128,49 @@ public class Vehicle {
         }
     }
     
+    
     public void move() {
-//        System.out.println(queue);
         localGrid.get(yPosition).set(xPosition, depthGrid.get(yPosition).get(xPosition)); //update local grid
-//        System.out.println(localGrid);
         
-        if ((yPosition == depthGrid.size() - 1 && xPosition == 0) || xPosition == depthGrid.get(0).size() - 1) { //dont move if terminated
-            return;
+        //different end conditions depending on clockwise orientation
+        if (clockwise) {
+        	if ((yPosition == depthGrid.size() - 1 && xPosition == 0) || xPosition == depthGrid.get(0).size() - 1) { //dont move if terminated
+        		return;
+        	}        	
+        }
+        else {
+        	if ((yPosition == 0 && xPosition == 0) || xPosition == depthGrid.get(0).size() - 1) { //dont move if terminated
+        		return;
+        	}   
         }
         
         if (queue.isEmpty()) {//should only be true at the very start
 
             createQueue();
         }
-        
-        
+//    	System.out.println(queue);
+
         List<Integer> destination = queue.get(0);
-        if (yPosition == destination.get(0) || xPosition == destination.get(1)) {
+        
+        if (yPosition == destination.get(0) && xPosition == destination.get(1)) {
             if (xPosition == 0 || depthGrid.get(yPosition).get(xPosition) >= 4) {
+//            	System.out.println(lastVitalLocation);
+//            	System.out.println(destination);
                 lastDirection = List.of(destination.get(0) - lastVitalLocation.get(0), destination.get(1) - lastVitalLocation.get(1));
                 
                 if (! order.contains(lastDirection)) {
                     System.out.print("BUGGGG");
+//                    System.out.println(lastDirection);
                 }
-                
                 lastVitalLocation = destination;
                 
                 createQueue();
             }
             
+            //skips nodes which are known not to be on path
             destination = queue.get(0);
-            int value = localGrid.get(destination.get(0)).get(destination.get(1)); //known depth
-            while (value > 0 && value <= 3) { //known to be shallow
+            int value = localGrid.get(destination.get(0)).get(destination.get(1)); //destination depth
+            while (value > 0 && value <= 3) { //true if known to be shallow, false otherwise
                 queue.remove(0);
                 destination = queue.get(0);
                 value = localGrid.get(destination.get(0)).get(destination.get(1));
@@ -185,9 +178,31 @@ public class Vehicle {
 //                System.out.println(value);
             }            
         }
+
         
         //ASSUMES QUEUE CAN NEVER BE EMPTY
         inch(queue.get(0));
+        
+        
+        
+        if (xPosition == 0) {
+            candidatePath.clear();
+        }
+        
+        if (xPosition == 0 || depthGrid.get(yPosition).get(xPosition) >= 4) {            
+            candidatePath.add(getPosition());
+        }
+        traversedPath.add(getPosition());
+        
+        if (xPosition == depthGrid.get(0).size() - 1) {
+            done = true;
+        }
+        else if (clockwise && xPosition == 0 && yPosition == depthGrid.size() - 1) {
+        	done = true;
+        }
+        else if (! clockwise && xPosition == 0 && yPosition == 0) {
+    		done = true;
+    }
     }
     
     /**
@@ -210,6 +225,63 @@ public class Vehicle {
         }
     }
     
+    public List<List<Integer>> getFoundPath() {
+        return candidatePath;
+    }
+    
+    public List<List<Integer>> getTraversedPath() {
+        return traversedPath;
+    }
+    
+    public boolean isDone() {
+    	return done;
+    }
+    
+//    public List<List<Integer>> neighboringCells() { //includes self as neighbor
+//      List<Integer> xDeltas = new ArrayList<>();
+//      List<Integer> yDeltas = new ArrayList<>();
+//      
+//      List<List<Integer>> neighbors = new ArrayList<>();
+//
+//      if (xPosition == 0) {
+//          xDeltas.add(0);
+//          xDeltas.add(1);
+//      }
+//      else if (xPosition == localGrid.get(0).size() - 1) {
+//          xDeltas.add(-1);
+//          xDeltas.add(0);
+//      }
+//      else {
+//          xDeltas.add(-1);
+//          xDeltas.add(0);
+//          xDeltas.add(1);
+//      }
+//      
+//      if (yPosition == 0) {
+//          yDeltas.add(0);
+//          yDeltas.add(1);
+//      }
+//      else if (yPosition == localGrid.size() - 1) {
+//          yDeltas.add(-1);
+//          yDeltas.add(0);
+//      }
+//      else {
+//          yDeltas.add(-1);
+//          yDeltas.add(0);
+//          yDeltas.add(1);
+//      }
+//      
+//      for (int xDelta: xDeltas) {
+//          for (int yDelta: yDeltas) {
+//              List<Integer> neighbor = new ArrayList<>();
+//              neighbor.add(yPosition + yDelta);
+//              neighbor.add(xPosition + xDelta);
+//              neighbors.add(neighbor);
+//          }
+//      }
+//      
+//      return neighbors;
+//  }
     
 //    public void move() {
 ////        List<List<Integer>> neighbors = neighboringCells();
